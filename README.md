@@ -1,12 +1,37 @@
-# CYTOPLASM — Living Architecture v0.1.0
+# CYTOPLASM v0.2 — спрощене керування
 
-**Mobile portrait 9:16 · 720×1280 · GDevelop 5 + HTML demo.**
+**[Грати в CYTOPLASM](https://mickalaykorolyov-bit.github.io/cytoplasm-gdevelop/)** · [GDevelop v0.2](./Cytoplasm_GDevelop_v020.json) · [Інструкція українською](./README_UA.md)
 
-- 🎮 [Грати в браузері через GitHub Pages](https://mickalaykorolyov-bit.github.io/cytoplasm-gdevelop/) — після ввімкнення Pages: `main` → `/docs`.
-- 🧩 [GDevelop JSON](./Cytoplasm_GDevelop_v010.json) — відкрити через [GDevelop](https://editor.gdevelop.io/).
-- 🧠 [GameCore_v010.js](./GameCore_v010.js) — основний код.
-- 💻 [index.html](./index.html) — незалежне браузерне демо, не офіційний експорт GDevelop.
-- 🇺🇦 [Повна інструкція](./README_UA.md).
+# CYTOPLASM — Living Architecture v0.2.0
 
-**Прототип містить 2 кімнати** зі Stasis, Viscosity, Crystallization, Release, Contraction, Momentum Storage/Transfer та Digestion, а також біомасою, напругою живих ниток і зв'язністю. Деякі взаємодії — спрощена симуляція; перевірити GDevelop Preview вручну.
+Мобільний прототип із **двома кімнатами** · **720 × 1280** · GDevelop 5 та HTML-демо.
 
+## Зміни v0.2
+
+Головна зміна після тестування на телефоні — простіше керування:
+- **← / → / СТРИБОК** — великі кнопки руху.
+- **СТОП / ПУСТИТИ** — одна контекстна кнопка для фіксації та звільнення вибраного предмета.
+- **ЗДІБНОСТІ** — окреме меню замість десяти постійно видимих кнопок; відкриття меню призупиняє гру.
+- Відпускання кнопки або втрата дотику **негайно зупиняє** горизонтальний рух героя.
+- Персонаж автоматично зупиняється перед прірвою, якщо не стрибає. Зі стрибком край можна перетнути.
+
+## Як грати
+
+1. Торкнися стільця або ящика; перетягни та відпусти, щоб кинути.
+2. Коли предмет летить, натисни **СТОП / ПУСТИТИ** — предмет зафіксується у просторі.
+3. Натисни цю ж кнопку ще раз — предмет відновить збережений рух.
+4. У **ЗДІБНОСТЯХ** доступні в’язкість (гель), кристалізація, розбиття, нитки, скорочення, передача імпульсу, поглинання та повернення біомаси.
+
+## Версії та файли
+
+- [Онлайн-гра](https://mickalaykorolyov-bit.github.io/cytoplasm-gdevelop/) — GitHub Pages.
+- [Cytoplasm_GDevelop_v020.json](./Cytoplasm_GDevelop_v020.json) — актуальний проєкт GDevelop.
+- [GameCore_v020.js](./GameCore_v020.js) — ігрове ядро.
+- [GameScene_v020.js](./GameScene_v020.js) — JS-подія GDevelop.
+- [index.html](./index.html) і [docs/index.html](./docs/index.html) — браузерне демо, **не** офіційний експорт GDevelop.
+
+Попередня версія v0.1 збережена в репозиторії для порівняння.
+
+## Що ще треба перевірити
+
+Нативний запуск GDevelop Preview та керування на реальному телефоні. Фізика зіткнень і живих ниток у прототипі залишається спрощеною.
