@@ -2,6 +2,8 @@
 (function(){'use strict';if(typeof PIXI==='undefined'||typeof document==='undefined')return;
 let st=runtimeScene.__cytoplasm110a;
 if(!st){
+/* CYTOPLASM v1.0 — LIVING WORLD. Contextual biology, alternate routes, living biome,
+   telegraphed spore salvos, kinetic shrapnel, and reactive viruses. Self-contained. */
 /* CYTOPLASM v1.1a — LIVING MATTER. Contextual biology, alternate routes, living biome,
    telegraphed spore salvos, kinetic shrapnel, and reactive viruses. Self-contained. */
 function createCytoplasm(canvas,opts={}){
@@ -353,7 +355,6 @@ function step(dt){update(dt);render();}
 function getState(){return {phase:S.phase,time:S.elapsed,player:{x:S.p.x,y:S.p.y,hp:S.p.hp,r:pSize(),renderRadius:S.p.renderRadius,visualShot:S.p.visualShot,visualImpact:S.p.visualImpact,respawn:S.p.respawn},bio:S.bio,maxBio:S.maxBio,boost:S.boost,camera:S.cam,stats:{...S.stats},pads:S.pads.map(g=>({x:g.x,y:g.y,kind:g.kind,hp:g.hp,visualBorn:g.visualBorn,visualCompression:g.visualCompression})),enemies:S.enemies.filter(e=>e.alive).map(e=>({x:e.x,y:e.y,type:e.type,inflated:e.inflated||0})),bullets:S.bullets.length,shards:S.shards.length,lofts:lofts.map(q=>({x:q.x,y:q.y,visited:!!S.loftsVisited[q.x]})),wallOpen:S.walls[0].open,itemsLeft:S.pickups.filter(i=>!i.got).length};}
 start();return {step,render,update,keyDown,keyUp,pointerDown,pointerMove,shoot,detonate,start,getState,_debug:()=>S};
 }
-if(typeof module!=='undefined'&&module.exports)module.exports={createCytoplasm};
 
 const cvs=document.createElement('canvas');cvs.width=960;cvs.height=540;
 const game=createCytoplasm(cvs),tex=PIXI.Texture.from(cvs),sprite=new PIXI.Sprite(tex);
