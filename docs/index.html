@@ -1,15 +1,15 @@
 <!doctype html><html lang="uk"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0c111e"><title>CYTOPLASM — Living Architecture v0.4 PC</title>
+<meta name="theme-color" content="#0c111e"><title>CYTOPLASM — Living Architecture v0.5 PC</title>
 <style>html,body{height:100%;margin:0;overflow:hidden;background:#070b12;color:#d9e0ea;font-family:system-ui,Arial}
 #stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
 canvas{display:block;width:min(100vw,177.7777778vh);height:min(56.25vw,100vh);aspect-ratio:16/9;touch-action:none;user-select:none;box-shadow:0 0 75px #000a}
 #version{position:fixed;right:12px;bottom:6px;color:#738195;font:10px system-ui;pointer-events:none}</style>
-</head><body><main id="stage"><canvas id="game" width="1280" height="720" tabindex="0" aria-label="CYTOPLASM PC"></canvas></main><div id="version">v0.4 PC | E carry | F throw | Q freeze</div>
+</head><body><main id="stage"><canvas id="game" width="1280" height="720" tabindex="0" aria-label="CYTOPLASM PC"></canvas></main><div id="version">v0.5 PC | F візьми | E кинь | R фіксація</div>
 <script>
-/* CYTOPLASM v0.4.0 — PC-first carry, leap, throw, freeze.
-   No ability menu or mouse targeting needed. E carry/drop, F throw, Q stasis/release;
-   T tether, A/D move, Space jump. Objects fly more slowly. Weight-limited carrying.
+/* CYTOPLASM v0.5.0 — PC-first carry, leap, throw, freeze.
+   No ability menu or mouse targeting needed. F carry/drop, E throw, R stasis/release;
+   T tether, N restart, A/D move, Space jump. Slime platforms for every stasis orientation. Objects fly more slowly. Weight-limited carrying.
    Single living material with reclaimable biomass. Landscape 1280x720 Canvas2D. */
 function createCytoplasm(canvas) {
 'use strict';
@@ -23,8 +23,8 @@ let uid=0;
 const body=(type,x,y,w,h,mass=1)=>({id:++uid,type,x,y,w,h,mass,vx:0,vy:0,angle:0,omega:0,held:false,fixed:false,stored:null,cost:0,onGround:false,deleted:false,linked:false,connection:false});
 const S={room:1,phase:'play',t:0,elapsed:0,biomass:100,player:{x:120,y:604,vx:0,vy:0,w:30,h:46,grounded:false,riding:null,carrying:null,facing:1},bodies:[],links:[],anchors:[],particles:[],platforms:[],door:null,drag:null,active:null,lastThrown:null,keys:{},lastClick:-100,clickRelease:null,mouse:{x:0,y:0},note:'',noteTimer:0,stats:{throws:0,freezes:0,releases:0,links:0,contractions:0,roomCompleted:0},tutorial:0,settled:false,won:false};
 const note=(s,time=2.7)=>{S.note=s;S.noteTimer=time};
-const liftLimit=()=>.6+S.biomass*.021; // at full biomass can lift mass 2.7
-const throwHint='E — ПІДНЯТИ  •  SPACE — СТРИБНУТИ  •  F — КИНУТИ  •  Q — ЗУПИНИТИ / ЗВІЛЬНИТИ';
+const liftLimit=()=>.6+S.biomass*.021; // full biomass lifts up to 2.7 mass units
+const throwHint='F — ВЗЯТИ  •  SPACE — СТРИБНУТИ  •  E — КИНУТИ  •  R — ЗУПИНИТИ / ЗВІЛЬНИТИ';
 function roomSetup(n){
  S.room=n;S.phase='play';S.biomass=100;S.links=[];S.bodies=[];S.particles=[];S.anchors=[];S.lastClick=-100;S.clickRelease=null;S.drag=null;S.active=null;S.lastThrown=null;S.keys={};S.settled=false;
  S.player={x:113,y:604,vx:0,vy:0,w:30,h:46,grounded:false,riding:null,carrying:null,facing:1};
@@ -33,15 +33,30 @@ function roomSetup(n){
   S.bodies=[body('chair',238,559,85,78,1.0),body('plank',317,583,138,25,.85),body('box',154,584,64,55,1.3)];
   S.door={x:1184,y:437,w:66,h:64};
   S.anchors=[];
-  note('E — ВІЗЬМИ ПРЕДМЕТ. SPACE — СТРИБНИ. F — КИНЬ. Q — ЗАФІКСУЙ У ПОЛЬОТІ.',8);
+  note('F — ВІЗЬМИ ПРЕДМЕТ. SPACE — СТРИБНИ. E — КИНЬ. R — ЗАФІКСУЙ У ПОЛЬОТІ.',8);
  } else {
   S.platforms=[{x:0,y:628,w:434,h:92},{x:713,y:609,w:120,h:111},{x:959,y:477,w:321,h:243}];
   S.bodies=[body('crate',325,590,106,76,2.45),body('chair',213,556,84,78,1.0),body('plank',405,580,122,25,.85)];
   S.anchors=[{id:'A',x:670,y:224},{id:'B',x:890,y:178},{id:'C',x:1010,y:304}];
   S.door={x:1184,y:412,w:66,h:65};
-  note('КІМНАТА 2: ВАЖКА СКРИНЯ. БІОМАСА = СИЛА. Q — ФІКСУЙ, T — ПРИКРІПИ НИТКУ.',8);
+  note('КІМНАТА 2: ВАЖКА СКРИНЯ. БІОМАСА = СИЛА. R — ФІКСУЙ, T — ПРИКРІПИ НИТКУ.',8);
  }
  S.player.y=S.platforms[0].y-S.player.h/2;
+}
+// An organic cytoplasm cocoon always exposes one generous FLAT, STICKY top,
+// regardless of how far the real furniture has rotated. A fixed or tethered
+// object remains physically identifiable; slime is its separate walkable skin.
+function slimePlatform(b){
+ const ca=Math.cos(b.angle), si=Math.sin(b.angle);
+ const extentX=(Math.abs(b.w*ca)+Math.abs(b.h*si))/2;
+ const extentY=(Math.abs(b.w*si)+Math.abs(b.h*ca))/2;
+ const half=Math.max(91,extentX+37);
+ return {left:Math.max(0,b.x-half),right:Math.min(W,b.x+half),y:b.y-extentY-14};
+}
+function slimeSurface(b,x){
+ if(!(b.fixed||b.linked))return null;
+ const m=slimePlatform(b);
+ return x>=m.left && x<=m.right ? m.y : null;
 }
 function getSurface(body,x){
  const dx=x-body.x, co=Math.cos(body.angle),si=Math.sin(body.angle);
@@ -75,15 +90,16 @@ function findLink(x,y){let best=null,bestDist=18;
 }
 function freezeActive(){
  const b=S.active&&S.bodies.find(o=>o.id===S.active&&!o.deleted);
- if(!b){note('СПОЧАТКУ КИНЬ ПРЕДМЕТ КЛАВІШЕЮ F.');return false;}
- if(b.fixed){note('ЦЕЙ ПРЕДМЕТ УЖЕ ЗАФІКСОВАНИЙ. НАТИСНИ Q ДЛЯ ЗВІЛЬНЕННЯ.');return false;}
+ if(!b){note('СПОЧАТКУ КИНЬ ПРЕДМЕТ КЛАВІШЕЮ E.');return false;}
+ if(b.fixed){note('ЦЕЙ ПРЕДМЕТ УЖЕ ЗАФІКСОВАНИЙ. НАТИСНИ R ДЛЯ ЗВІЛЬНЕННЯ.');return false;}
  if(b.held){note('СПОЧАТКУ ВІДПУСТИ ПРЕДМЕТ.');return false;}
  const cost=Math.round(8+b.mass*5);
  if(S.biomass<cost+7){note('МАЛО БІОМАСИ. ВІДПУСТИ ІНШИЙ ПРЕДМЕТ.');return false;}
  b.stored={vx:b.vx,vy:b.vy,omega:b.omega};b.vx=0;b.vy=0;b.omega=0;b.fixed=true;b.cost=cost;
- S.biomass-=cost;S.stats.freezes++;note('ЗАФІКСОВАНО! ПОВТОРНЕ Q — ВІДПУСТИТИ.',2.2);return true;
+ S.biomass-=cost;S.stats.freezes++;note('ЗАФІКСОВАНО! ЛИПКА ОБОЛОНКА — СТІЙ ПІД БУДЬ-ЯКИМ КУТОМ. R — ВІДПУСТИТИ.',2.2);return true;
 }
 function release(b){if(!b||!b.fixed)return false;
+ if(S.player.riding===b.id){S.player.grounded=false;S.player.riding=null;}
  b.fixed=false;b.vx=b.stored?.vx||0;b.vy=b.stored?.vy||0;b.omega=b.stored?.omega||0;b.stored=null;
  S.biomass=clamp(S.biomass+b.cost,0,100);b.cost=0;S.stats.releases++;S.links=S.links.filter(l=>l.bodyId!==b.id);b.linked=false;note('ЦИТОПЛАЗМА ПОВЕРНУЛАСЯ ДО ТЕБЕ.',2);return true;
 }
@@ -110,44 +126,45 @@ function carryAction(){
  const p=S.player;
  if(p.carrying){const b=S.bodies.find(x=>x.id===p.carrying);p.carrying=null;
   if(b){b.held=false;b.vx=p.vx*.5;b.vy=10;b.omega=0;b.x=p.x+p.facing*(p.w/2+b.w*.55+13);b.y=p.y-b.h*.1;S.active=b.id;}
-  note('ПРЕДМЕТ ОПУЩЕНО. E — ПІДНЯТИ ЗНОВУ.',1.7);return true;
+  note('ПРЕДМЕТ ОПУЩЕНО. F — ПІДНЯТИ ЗНОВУ.',1.7);return true;
  }
  const b=nearestCarryable();
  if(!b){
   const frozen=S.bodies.filter(b=>!b.deleted&&b.fixed).sort((a,b)=>dist(a,p)-dist(b,p))[0];
-  if(frozen&&dist(frozen,p)<95){release(frozen);note('ЦИТОПЛАЗМА ПОВЕРНУЛАСЯ. E — ПІДНЯТИ ПРЕДМЕТ.',2);return true;}
-  note('ПІДІЙДИ ДО ПРЕДМЕТА ТА НАТИСНИ E.',1.9);return false;
+  if(frozen&&dist(frozen,p)<95){release(frozen);note('ЦИТОПЛАЗМА ПОВЕРНУЛАСЯ. F — ПІДНЯТИ ПРЕДМЕТ.',2);return true;}
+  note('ПІДІЙДИ ДО ПРЕДМЕТА ТА НАТИСНИ F.',1.9);return false;
  }
  const limit=liftLimit();
  if(b.mass>limit){note('ЗАНАДТО ВАЖКО! СИЛА ЗАЛЕЖИТЬ ВІД БІОМАСИ. ЗВІЛЬНИ ФІКСОВАНІ ПРЕДМЕТИ.',3.5);return false;}
  p.carrying=b.id;b.held=true;b.vx=0;b.vy=0;b.omega=0;b.angle=0;S.active=b.id;
- syncCarried();note('ПРЕДМЕТ У РУКАХ. СТРИБАЙ SPACE ТА КИДАЙ F.',2.5);return true;
+ syncCarried();note('ПРЕДМЕТ У РУКАХ. СТРИБАЙ SPACE ТА КИДАЙ E.',2.5);return true;
 }
 function syncCarried(){
  const p=S.player;if(!p.carrying)return;
  const b=S.bodies.find(x=>x.id===p.carrying&&!x.deleted);
  if(!b){p.carrying=null;return;}
  b.x=clamp(p.x+p.facing*(p.w/2+b.w*.55+12),b.w/2,W-b.w/2);
- b.y=p.y-14;
+ b.y=p.y-14; // Follows the player even in the air.
  b.angle=p.facing*.065;b.vx=0;b.vy=0;b.omega=0;b.held=true;
 }
 function throwCarried(){
  const p=S.player;
  const b=S.bodies.find(x=>x.id===p.carrying&&!x.deleted);
- if(!b){note('СПОЧАТКУ ВІЗЬМИ ПРЕДМЕТ КЛАВІШЕЮ E.',2);return false;}
+ if(!b){note('СПОЧАТКУ ВІЗЬМИ ПРЕДМЕТ КЛАВІШЕЮ F.',2);return false;}
  p.carrying=null;b.held=false;
+ // Slow deliberate arc. Its start height depends on the jump, not mouse precision.
  b.vx=p.facing*(365/Math.sqrt(Math.max(1,b.mass*.72)))+p.vx*.34;
  b.vy=-430+Math.min(0,p.vy)*.08;
  b.omega=p.facing*(.86/Math.sqrt(Math.max(.8,b.mass)));
  b.x=clamp(p.x+p.facing*(p.w/2+b.w/2+12),b.w/2,W-b.w/2);
  b.y=p.y-24;
  S.active=b.id;S.lastThrown=b.id;S.stats.throws++;
- note('У ПОЛЬОТІ! Q — ЗУПИНИ, ЩЕ РАЗ Q — ВІДПУСТИ.',2.4);
+ note('У ПОЛЬОТІ! R — ЗУПИНИ, ЩЕ РАЗ R — ВІДПУСТИ.',2.4);
  return true;
 }
 function freezeToggle(){
  const b=S.bodies.find(x=>x.id===S.lastThrown&&!x.deleted);
- if(!b){note('СПОЧАТКУ КИНЬ ПРЕДМЕТ КЛАВІШЕЮ F.',2);return false;}
+ if(!b){note('СПОЧАТКУ КИНЬ ПРЕДМЕТ КЛАВІШЕЮ E.',2);return false;}
  if(b.fixed)return release(b);
  if(b.held)return false;
  S.active=b.id;
@@ -156,30 +173,30 @@ function freezeToggle(){
 function connectNearest(){
  if(S.room!==2){note('ЖИВІ НИТКИ ЗʼЯВЛЯТЬСЯ У ДРУГІЙ КІМНАТІ.',2);return false;}
  const b=S.bodies.find(x=>x.id===S.lastThrown&&!x.deleted);
- if(!b||!b.fixed){note('СПОЧАТКУ ЗАФІКСУЙ ПРЕДМЕТ КЛАВІШЕЮ Q.',2.5);return false;}
+ if(!b||!b.fixed){note('СПОЧАТКУ ЗАФІКСУЙ ПРЕДМЕТ КЛАВІШЕЮ R.',2.5);return false;}
  let best=null,bd=500;
  for(const a of S.anchors){const d=dist(a,b);if(d<bd){bd=d;best=a;}}
  if(!best){note('ПІДКИНЬ ПРЕДМЕТ БЛИЖЧЕ ДО ЗЕЛЕНОЇ ОПОРИ.',2.5);return false;}
  return attach(b,best);
 }
-function doubleClick(){return freezeToggle();}
+function doubleClick(){return freezeToggle();} // Backwards-compatible action name; not needed by controls.
 function pointerDown(x,y){S.mouse={x,y};}
 function pointerMove(x,y){S.mouse={x,y};}
 function pointerUp(x,y){S.mouse={x,y};}
 function keyDown(k){
  const key=k.toLowerCase();
- if(S.keys[key])return;
+ if(S.keys[key])return; // one-shot actions on the rising edge only
  S.keys[key]=true;
- if(S.phase==='won'){if(key==='r'||key==='enter')roomSetup(1);return;}
+ if(S.phase==='won'){if(key==='n'||key==='enter')roomSetup(1);return;}
  if([' ','space','arrowup','w'].includes(key)&&S.player.grounded){
    S.player.vy=S.player.carrying?-595:-635;
    S.player.grounded=false;S.player.riding=null;
  }
- if(key==='e')carryAction();
- else if(key==='f')throwCarried();
- else if(key==='q')freezeToggle();
+ if(key==='f')carryAction();
+ else if(key==='e')throwCarried();
+ else if(key==='r')freezeToggle();
  else if(key==='t')connectNearest();
- else if(key==='r')roomSetup(S.room);
+ else if(key==='n')roomSetup(S.room);
 }
 function keyUp(k){S.keys[k.toLowerCase()]=false;}
 function resetKeys(){S.keys={};S.drag=null;S.player.vx=0;}
@@ -188,21 +205,32 @@ function updatePlayer(dt){
  const dir=((S.keys.d||S.keys.arrowright)?1:0)-((S.keys.a||S.keys.arrowleft)?1:0);
  if(dir)p.facing=dir;
  const cargo=S.bodies.find(b=>b.id===p.carrying);
- p.vx=dir*(cargo?255/(1+Math.max(0,cargo.mass-1)*.18):255); // instant stop on release
+ p.vx=dir*(cargo?255/(1+Math.max(0,cargo.mass-1)*.18):255); // instant stop on key release
  p.x=clamp(p.x+p.vx*dt,p.w/2,W-p.w/2);
+ // Sticky guardrail only while the feet are standing on a cytoplasm platform.
+ // Jump cancels riding, so a deliberate leap is never blocked.
+ const slimeRide=S.bodies.find(b=>b.id===p.riding&&!b.deleted&&(b.fixed||b.linked));
+ if(slimeRide&&p.grounded){
+  const m=slimePlatform(slimeRide);
+  p.x=clamp(p.x,m.left+p.w*.36,m.right-p.w*.36);
+ }
  p.vy+=1540*dt;p.y+=p.vy*dt;
  p.grounded=false;p.riding=null;
  const landings=[];
  for(const plat of S.platforms){if(p.x+p.w*.37>plat.x&&p.x-p.w*.37<plat.x+plat.w)landings.push({y:plat.y,id:'ground'});}
- for(const b of S.bodies){if(b.deleted||b.held)continue;const surface=getSurface(b,p.x);if(surface!==null)landings.push({y:surface,id:b.id});}
+ for(const b of S.bodies){
+  if(b.deleted||b.held)continue;
+  const surface=(b.fixed||b.linked)?slimeSurface(b,p.x):getSurface(b,p.x);
+  if(surface!==null)landings.push({y:surface,id:b.id});
+ }
  const afterFeet=p.y+p.h/2;
  if(p.vy>=-5){for(const l of landings.sort((a,b)=>a.y-b.y)){
-  if(prevFeet<=l.y+12&&afterFeet>=l.y&&afterFeet<l.y+40){p.y=l.y-p.h/2;p.vy=0;p.grounded=true;p.riding=l.id==='ground'?null:l.id;break;}
+  if(prevFeet<=l.y+14&&afterFeet>=l.y&&afterFeet<l.y+50){p.y=l.y-p.h/2;p.vy=0;p.grounded=true;p.riding=l.id==='ground'?null:l.id;break;}
  }}
  if(p.y>H+90){roomSetup(S.room);note('ПРОБУЙ ЩЕ РАЗ. СТВОРИ ПЛАТФОРМУ ІЗ ПРЕДМЕТА.');return;}
  if(p.x>S.door.x-20&&p.x<S.door.x+S.door.w+20&&Math.abs((p.y+p.h/2)-S.platforms[S.platforms.length-1].y)<90){
   S.stats.roomCompleted++;
-  if(S.room===1){roomSetup(2);note('КІМНАТА 2. ВАЖКА СКРИНЯ ПОТРЕБУЄ БІОМАСИ. Q — СТОП, T — НИТКА.',6)}
+  if(S.room===1){roomSetup(2);note('КІМНАТА 2. ВАЖКА СКРИНЯ ПОТРЕБУЄ БІОМАСИ. R — СТОП, T — НИТКА.',6)}
   else{S.phase='won';S.won=true;note('ЕКСПЕРИМЕНТ ПРОЙДЕНО!')}
  }
 }
@@ -218,7 +246,7 @@ function updateBodies(dt){
     b.y=p.y-b.h/2;b.vy=0;b.vx*=Math.pow(.84,dt*60);b.omega*=Math.pow(.85,dt*60);b.angle*=Math.pow(.96,dt*60);break;
    }
   }
-  if(b.y>H+180){b.deleted=true;S.links=S.links.filter(l=>l.bodyId!==b.id);if(S.active===b.id)S.active=null;if(S.lastThrown===b.id)S.lastThrown=null;note('ПРЕДМЕТ ВПАВ. R — ПОВТОРИТИ КІМНАТУ.');}
+  if(b.y>H+180){b.deleted=true;S.links=S.links.filter(l=>l.bodyId!==b.id);if(S.active===b.id)S.active=null;if(S.lastThrown===b.id)S.lastThrown=null;note('ПРЕДМЕТ ВПАВ. N — ПОВТОРИТИ КІМНАТУ.');}
  }
 }
 function updateLinks(dt){
@@ -266,7 +294,30 @@ function drawDoor(){const d=S.door;
  ctx.save();ctx.shadowColor='#a9f9e1';ctx.shadowBlur=23;rounded(d.x,d.y,d.w,d.h,28,'rgba(80,164,158,.17)','#91e7d1',3);ctx.restore();
  rounded(d.x+12,d.y+10,d.w-24,d.h-16,18,'rgba(15,34,48,.82)','#7ed6c9',1);for(let i=0;i<3;i++)circle(d.x+d.w/2,d.y+16+i*16,2,'#a5ffda');text('ВИХІД',d.x+d.w/2,d.y-16,14,'#b2e5dd','center','700');}
 function drawAnchors(){for(const a of S.anchors){ctx.save();ctx.shadowColor='#73f5c9';ctx.shadowBlur=22;circle(a.x,a.y,23,'rgba(61,208,170,.16)','#86fbd8',4);circle(a.x,a.y,9,'#8df8d4');ctx.restore();for(let k=0;k<7;k++){const ang=k*2*Math.PI/7+S.t*.5;circle(a.x+31*Math.cos(ang),a.y+31*Math.sin(ang),3,'#83ead1');}}}
-function drawBody(b){ctx.save();ctx.translate(b.x,b.y);ctx.rotate(b.angle);
+function drawSlimeCocoon(b){
+ const m=slimePlatform(b),cx=b.x,cy=b.y;
+ ctx.save();ctx.shadowColor='#81f6db';ctx.shadowBlur=21;
+ ctx.beginPath();ctx.ellipse(cx,cy,Math.max(46,(m.right-m.left)*.44),Math.max(b.h*.76,38),0,0,Math.PI*2);
+ ctx.fillStyle='rgba(104,235,199,.13)';ctx.fill();ctx.strokeStyle='rgba(153,255,219,.65)';ctx.lineWidth=2;ctx.stroke();
+ ctx.shadowBlur=0;
+ for(let i=0;i<5;i++){
+  const phi=i*1.27+S.t*.3;
+  circle(cx+Math.cos(phi)*((m.right-m.left)*.38),cy+Math.sin(phi)*Math.max(26,b.h*.6),2.6,'rgba(196,255,233,.9)');
+ }
+ ctx.restore();
+}
+function drawSlimeTop(b){
+ const m=slimePlatform(b),ww=m.right-m.left,yy=m.y;
+ ctx.save();ctx.shadowColor='#78efd0';ctx.shadowBlur=20;
+ rounded(m.left,yy-10,ww,18,10,'rgba(85,240,194,.34)','#A4FFE1',2.6);
+ ctx.shadowBlur=0;line(m.left+13,yy-8,m.right-13,yy-8,'rgba(232,255,248,.73)',1.4);
+ for(let i=0;i<Math.max(4,Math.floor(ww/35));i++){
+  let xx=m.left+18+i*(ww-36)/Math.max(1,Math.floor(ww/35)-1);
+  circle(xx,yy+7+Math.sin(S.t*3+i)*2,1.7,'rgba(181,255,226,.74)');
+ }
+ ctx.restore();
+}
+function drawBody(b){if(b.fixed||b.linked)drawSlimeCocoon(b);ctx.save();ctx.translate(b.x,b.y);ctx.rotate(b.angle);
  if(b.fixed){ctx.shadowBlur=30;ctx.shadowColor='#c7a1ff';circle(0,0,Math.hypot(b.w,b.h)*.56,'rgba(196,145,243,.11)','#cdabfc',1.5);ctx.shadowBlur=10;}
  ctx.shadowColor='rgba(6,3,18,.6)';ctx.shadowBlur=10;
  if(b.type==='chair'){
@@ -286,6 +337,7 @@ function drawBody(b){ctx.save();ctx.translate(b.x,b.y);ctx.rotate(b.angle);
  ctx.shadowBlur=0;
  if(b.fixed){ctx.lineWidth=3;ctx.strokeStyle='#e3c1ff';ctx.setLineDash([6,7]);ctx.strokeRect(-b.w/2-7,-b.h/2-7,b.w+14,b.h+14);ctx.setLineDash([]);}
  ctx.restore();
+ if(b.fixed||b.linked)drawSlimeTop(b);
  if(S.active===b.id||b.held){const y=b.y-b.h*.65-28;rounded(b.x-57,y-19,114,25,12,'rgba(17,20,35,.85)','#73899b',1);text(b.held?'У РУКАХ':b.fixed?'ФІКСАЦІЯ':'ОСТАННІЙ КИДОК',b.x,y-2,10,b.fixed?'#e2b5ff':'#c7dadd','center','700');}
 }
 function drawLinks(){for(const l of S.links){const b=S.bodies.find(z=>z.id===l.bodyId),a=S.anchors.find(z=>z.id===l.anchorId);if(!b||!a)continue;
@@ -306,13 +358,13 @@ function drawPlayer(){const p=S.player,scale=.63+.37*S.biomass/100;
  if(b){const sign=p.facing;line(p.x+sign*12,p.y-2,b.x-sign*b.w*.32,b.y+6,'#dab3fe',5);circle(p.x+sign*12,p.y-2,4,'#e9d0ff');}
 }
 function hud(){
- rounded(20,18,430,64,17,'rgba(9,17,31,.82)','#3d5661',1.5);text('CYTOPLASM',38,48,26,'#eddfff','left','900');text('ЖИВА АРХІТЕКТУРА  /  PC PROTOTYPE 0.4',39,68,12,'#97b8c1','left','600');
+ rounded(20,18,430,64,17,'rgba(9,17,31,.82)','#3d5661',1.5);text('CYTOPLASM',38,48,26,'#eddfff','left','900');text('ЖИВА АРХІТЕКТУРА  /  PC PROTOTYPE 0.5',39,68,12,'#97b8c1','left','600');
  rounded(1005,18,252,64,17,'rgba(9,17,31,.85)','#3d5661',1.5);text('КІМНАТА '+S.room+' / 2',1238,43,16,'#bff4df','right','800');
  rounded(1020,54,190,9,5,'#2c3d4f');rounded(1020,54,190*S.biomass/100,9,5,S.biomass>30?'#a8e8ca':'#f49aa5');text(Math.round(S.biomass)+'%',1238,65,12,'#e9e0ff','right','700');
  text('СИЛА: '+liftLimit().toFixed(1),1120,76,10,'#97b8c1','center','600');
  if(S.noteTimer>0){rounded(160,91,960,40,15,'rgba(11,21,36,.89)','#486576',1);text(S.note,640,117,14,'#ebf2ff','center','700');}
  rounded(20,670,1240,36,13,'rgba(7,13,24,.9)','#3b5060',1);
- let hint=S.room===1?'A / D — РУХ    •    SPACE — СТРИБОК    •    E — ВЗЯТИ / ПОКЛАСТИ    •    F — КИНУТИ    •    Q — СТОП / ПУСТИТИ':'A / D — РУХ    •    SPACE — СТРИБОК    •    E — ВЗЯТИ    •    F — КИНУТИ    •    Q — СТОП / ПУСТИТИ    •    T — НИТКА';
+ let hint=S.room===1?'A / D — РУХ    •    SPACE — СТРИБОК    •    F — ВЗЯТИ    •    E — КИНУТИ    •    R — СТОП / ПУСТИТИ':'A / D — РУХ    •    SPACE — СТРИБОК    •    F — ВЗЯТИ    •    E — КИНУТИ    •    R — СТОП / ПУСТИТИ    •    T — НИТКА';
  text(hint,640,693,14,'#d9e7e9','center','650');
  if(S.room===1)text('01  /  ВІЗЬМИ → СТРИБНИ → КИНЬ → ЗАФІКСУЙ',640,59,15,'#d5e4dd','center','800');
  else text('02  /  ВАГА ЗАЛЕЖИТЬ ВІД БІОМАСИ → НИТКА → ПІДЙОМ',640,59,15,'#d5e4dd','center','800');
@@ -325,11 +377,11 @@ function draw(){ctx.clearRect(0,0,W,H);backdrop();drawPlatforms();drawDoor();dra
  rounded(300,165,680,360,24,'rgba(11,16,29,.96)','#8cc9b6',2);text('ОБИДВІ КІМНАТИ ПРОЙДЕНО',640,253,29,'#d8ffe8','center','900');
  text('ТИ ЗМІНИВ СВІТ СВОЄЮ МАТЕРІЄЮ.',640,298,18,'#dedafa','center','600');
  text('КИДКИ: '+S.stats.throws+'   •   ФІКСАЦІЇ: '+S.stats.freezes+'   •   НИТКИ: '+S.stats.links,640,344,17,'#a8c6d5','center');
- text('НАТИСНИ R, ЩОБ ЗІГРАТИ ЗНОВУ',640,427,19,'#a6f8d7','center','800');
+ text('НАТИСНИ N, ЩОБ ЗІГРАТИ ЗНОВУ',640,427,19,'#a6f8d7','center','800');
  }
 }
 function step(dt){update(dt);draw()}
-function getState(){return {room:S.room,phase:S.phase,biomass:S.biomass,player:{...S.player},bodies:S.bodies.filter(x=>!x.deleted).map(x=>({...x})),links:S.links.map(x=>({...x})),anchors:S.anchors.map(x=>({...x})),active:S.active,lastThrown:S.lastThrown,maxLift:liftLimit(),stats:{...S.stats},drag:S.drag?{mode:S.drag.mode}:null};}
+function getState(){return {room:S.room,phase:S.phase,biomass:S.biomass,player:{...S.player},bodies:S.bodies.filter(x=>!x.deleted).map(x=>({...x})),links:S.links.map(x=>({...x})),anchors:S.anchors.map(x=>({...x})),active:S.active,lastThrown:S.lastThrown,maxLift:liftLimit(),stats:{...S.stats},slimePlatforms:S.bodies.filter(b=>!b.deleted&&(b.fixed||b.linked)).map(b=>({id:b.id,...slimePlatform(b)})),drag:S.drag?{mode:S.drag.mode}:null};}
 roomSetup(1);draw();
 return {step,draw,update,getState,pointerDown,pointerMove,pointerUp,doubleClick,keyDown,keyUp,resetKeys,resetRoom:roomSetup,freezeActive,release,attach,carryAction,throwCarried,freezeToggle,connectNearest,_unsafeState:S};
 }
@@ -338,7 +390,7 @@ if(typeof module!=='undefined' && module.exports) module.exports={createCytoplas
 (function(){
  const cvs=document.getElementById('game'), game=createCytoplasm(cvs);
  cvs.addEventListener('pointerdown',()=>cvs.focus());
- const permitted=['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' ','w','a','s','d','e','f','q','t','r'];
+ const permitted=['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' ','w','a','s','d','e','f','r','t','n'];
  addEventListener('keydown',e=>{if(permitted.includes(e.key)||permitted.includes(e.key.toLowerCase()))e.preventDefault();if(e.repeat)return;game.keyDown(e.key);});
  addEventListener('keyup',e=>{if(permitted.includes(e.key)||permitted.includes(e.key.toLowerCase()))e.preventDefault();game.keyUp(e.key);});
  addEventListener('blur',()=>game.resetKeys());
