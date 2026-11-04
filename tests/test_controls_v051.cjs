@@ -1,0 +1,10 @@
+const assert=require('node:assert/strict');
+const {createCytoplasm}=require('../GameCore_v051.js');
+const ctx=new Proxy({createLinearGradient:()=>({addColorStop(){}})},{get:(o,k)=>k in o?o[k]:()=>{}});
+const g=createCytoplasm({getContext:()=>ctx}),pulse=k=>{g.keyDown(k);g.keyUp(k);};
+g.update(1/60);pulse('а');assert.ok(g.getState().player.carrying);
+pulse('у');assert.equal(g.getState().stats.throws,1);
+pulse('к');assert.equal(g.getState().stats.freezes,1);
+pulse('к');assert.equal(g.getState().stats.releases,1);
+pulse('n');pulse('f');pulse('e');pulse('r');assert.equal(g.getState().stats.freezes,2);
+console.log('PASS v0.5.1 — Ukrainian + English physical F/E/R');

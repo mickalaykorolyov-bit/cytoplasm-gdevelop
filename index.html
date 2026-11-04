@@ -1,13 +1,13 @@
 <!doctype html><html lang="uk"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0c111e"><title>CYTOPLASM — Living Architecture v0.5 PC</title>
+<meta name="theme-color" content="#0c111e"><title>CYTOPLASM — Living Architecture v0.5.1 PC</title>
 <style>html,body{height:100%;margin:0;overflow:hidden;background:#070b12;color:#d9e0ea;font-family:system-ui,Arial}
 #stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
 canvas{display:block;width:min(100vw,177.7777778vh);height:min(56.25vw,100vh);aspect-ratio:16/9;touch-action:none;user-select:none;box-shadow:0 0 75px #000a}
 #version{position:fixed;right:12px;bottom:6px;color:#738195;font:10px system-ui;pointer-events:none}</style>
-</head><body><main id="stage"><canvas id="game" width="1280" height="720" tabindex="0" aria-label="CYTOPLASM PC"></canvas></main><div id="version">v0.5 PC | F візьми | E кинь | R фіксація</div>
+</head><body><main id="stage"><canvas id="game" width="1280" height="720" tabindex="0" aria-label="CYTOPLASM PC"></canvas></main><div id="version">v0.5.1 PC | F візьми | E кинь | R фіксація</div>
 <script>
-/* CYTOPLASM v0.5.0 — PC-first carry, leap, throw, freeze.
+/* CYTOPLASM v0.5.1 — PC-first carry, leap, throw, freeze.
    No ability menu or mouse targeting needed. F carry/drop, E throw, R stasis/release;
    T tether, N restart, A/D move, Space jump. Slime platforms for every stasis orientation. Objects fly more slowly. Weight-limited carrying.
    Single living material with reclaimable biomass. Landscape 1280x720 Canvas2D. */
@@ -183,8 +183,16 @@ function doubleClick(){return freezeToggle();} // Backwards-compatible action na
 function pointerDown(x,y){S.mouse={x,y};}
 function pointerMove(x,y){S.mouse={x,y};}
 function pointerUp(x,y){S.mouse={x,y};}
+// Physical keys: F=а, E=у, R=к on Ukrainian layouts.
+const physicalKey={KeyA:'a',KeyD:'d',KeyW:'w',KeyF:'f',KeyE:'e',KeyR:'r',KeyT:'t',KeyN:'n',ArrowLeft:'arrowleft',ArrowRight:'arrowright',ArrowUp:'arrowup',Space:' '};
+const ukrainianKey={'ф':'a','в':'d','ц':'w','а':'f','у':'e','к':'r','е':'t','т':'n'};
+function normalizeGameKey(k){
+ if(k&&typeof k==='object')return physicalKey[k.code]||normalizeGameKey(k.key||'');
+ const key=String(k||'').toLowerCase();
+ return physicalKey[k]||ukrainianKey[key]||key;
+}
 function keyDown(k){
- const key=k.toLowerCase();
+ const key=normalizeGameKey(k);
  if(S.keys[key])return; // one-shot actions on the rising edge only
  S.keys[key]=true;
  if(S.phase==='won'){if(key==='n'||key==='enter')roomSetup(1);return;}
@@ -198,7 +206,7 @@ function keyDown(k){
  else if(key==='t')connectNearest();
  else if(key==='n')roomSetup(S.room);
 }
-function keyUp(k){S.keys[k.toLowerCase()]=false;}
+function keyUp(k){S.keys[normalizeGameKey(k)]=false;}
 function resetKeys(){S.keys={};S.drag=null;S.player.vx=0;}
 function updatePlayer(dt){
  const p=S.player,prevFeet=p.y+p.h/2;
@@ -358,7 +366,7 @@ function drawPlayer(){const p=S.player,scale=.63+.37*S.biomass/100;
  if(b){const sign=p.facing;line(p.x+sign*12,p.y-2,b.x-sign*b.w*.32,b.y+6,'#dab3fe',5);circle(p.x+sign*12,p.y-2,4,'#e9d0ff');}
 }
 function hud(){
- rounded(20,18,430,64,17,'rgba(9,17,31,.82)','#3d5661',1.5);text('CYTOPLASM',38,48,26,'#eddfff','left','900');text('ЖИВА АРХІТЕКТУРА  /  PC PROTOTYPE 0.5',39,68,12,'#97b8c1','left','600');
+ rounded(20,18,430,64,17,'rgba(9,17,31,.82)','#3d5661',1.5);text('CYTOPLASM',38,48,26,'#eddfff','left','900');text('ЖИВА АРХІТЕКТУРА  /  PC PROTOTYPE 0.5.1',39,68,12,'#97b8c1','left','600');
  rounded(1005,18,252,64,17,'rgba(9,17,31,.85)','#3d5661',1.5);text('КІМНАТА '+S.room+' / 2',1238,43,16,'#bff4df','right','800');
  rounded(1020,54,190,9,5,'#2c3d4f');rounded(1020,54,190*S.biomass/100,9,5,S.biomass>30?'#a8e8ca':'#f49aa5');text(Math.round(S.biomass)+'%',1238,65,12,'#e9e0ff','right','700');
  text('СИЛА: '+liftLimit().toFixed(1),1120,76,10,'#97b8c1','center','600');
@@ -388,11 +396,14 @@ return {step,draw,update,getState,pointerDown,pointerMove,pointerUp,doubleClick,
 if(typeof module!=='undefined' && module.exports) module.exports={createCytoplasm};
 
 (function(){
- const cvs=document.getElementById('game'), game=createCytoplasm(cvs);
+ const cvs=document.getElementById('game'),game=createCytoplasm(cvs);
  cvs.addEventListener('pointerdown',()=>cvs.focus());
- const permitted=['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' ','w','a','s','d','e','f','r','t','n'];
- addEventListener('keydown',e=>{if(permitted.includes(e.key)||permitted.includes(e.key.toLowerCase()))e.preventDefault();if(e.repeat)return;game.keyDown(e.key);});
- addEventListener('keyup',e=>{if(permitted.includes(e.key)||permitted.includes(e.key.toLowerCase()))e.preventDefault();game.keyUp(e.key);});
+ const physical={KeyA:'a',KeyD:'d',KeyW:'w',KeyF:'f',KeyE:'e',KeyR:'r',KeyT:'t',KeyN:'n',Space:' ',ArrowLeft:'ArrowLeft',ArrowRight:'ArrowRight',ArrowUp:'ArrowUp'};
+ const allowed=new Set(['a','d','w','f','e','r','t','n',' ','ArrowLeft','ArrowRight','ArrowUp']);
+ const keyFor=e=>physical[e.code]||e.key;
+ const accepted=k=>allowed.has(k)||['ф','в','ц','а','у','к','е','т'].includes(k.toLowerCase());
+ addEventListener('keydown',e=>{const k=keyFor(e);if(!accepted(k))return;e.preventDefault();if(!e.repeat)game.keyDown(k);});
+ addEventListener('keyup',e=>{const k=keyFor(e);if(!accepted(k))return;e.preventDefault();game.keyUp(k);});
  addEventListener('blur',()=>game.resetKeys());
  document.addEventListener('visibilitychange',()=>{if(document.hidden)game.resetKeys();});
  let last=performance.now();function frame(t){game.step(Math.min(.033,Math.max(0,(t-last)/1000)));last=t;requestAnimationFrame(frame)}requestAnimationFrame(frame);
