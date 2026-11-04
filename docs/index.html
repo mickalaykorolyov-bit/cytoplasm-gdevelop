@@ -1,7 +1,7 @@
 <!doctype html><html lang="uk"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
 <meta name="theme-color" content="#111626"/>
-<title>CYTOPLASM — Living Architecture v0.1</title>
+<title>CYTOPLASM — Living Architecture v0.2</title>
 <style>
 *{box-sizing:border-box;}html,body{margin:0;width:100%;height:100%;overflow:hidden;overscroll-behavior:none;background:#0d1322;color:#f2ebff;font-family:system-ui,sans-serif;touch-action:none;}
 body{display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 15% 25%,#352b51,#0d1322 60%)}
@@ -9,7 +9,7 @@ body{display:flex;align-items:center;justify-content:center;background:radial-gr
 @media(max-aspect-ratio:9/16){#game{width:100vw;height:auto;max-height:100dvh}}
 </style></head><body><canvas id="game" width="720" height="1280" aria-label="CYTOPLASM — фізичний платформер, дві кімнати"></canvas>
 <script>
-/* CYTOPLASM — Living Architecture v0.1.0.
+/* CYTOPLASM — Living Architecture v0.2.0.
    GDevelop-compatible, asset-free Canvas2D engine. Virtual resolution: 720 x 1280.
    Mechanics: draggable throws, stasis/release, viscous fields, crystallization/shattering,
    elastic connections, contraction, momentum transfer, biomass digestion, strain/links.
@@ -26,7 +26,7 @@ const rect=(x,y,w,h)=>({x,y,w,h});
 let idCounter=0;
 const createBody=(name,x,y,w,h,mass=1,type='prop')=>({id:++idCounter,name,x,y,w,h,mass,type, vx:0,vy:0,angle:0,omega:0, fixed:false,stored:null,crystal:false,ice:0,stamina:1,deleted:false,held:false});
 const bodyRadius=b=>Math.max(b.w,b.h)*.53;
-const S={phase:'intro',room:1,time:0,biomass:100,player:null,bodies:[],links:[],gels:[],shards:[],particles:[],anchors:[],selected:null,linkStart:null,mode:null,message:'',msgT:0,goal:false,won:false,winTime:0,enemy:null,stage:0,drag:null,drags:new Map(),keys:{},buttons:[],hintIndex:0,seen:{},stats:{flings:0,stasis:0,releases:0,gels:0,crystals:0,shatters:0,links:0,pulls:0,transfers:0,digestions:0,breaks:0},prev:0,warning:false};
+const S={phase:'intro',room:1,time:0,biomass:100,player:null,bodies:[],links:[],gels:[],shards:[],particles:[],anchors:[],selected:null,linkStart:null,mode:null,message:'',msgT:0,goal:false,won:false,winTime:0,enemy:null,stage:0,drag:null,drags:new Map(),keys:{},keyboard:{},menuOpen:false,menuButtons:[],buttons:[],hintIndex:0,seen:{},stats:{flings:0,stasis:0,releases:0,gels:0,crystals:0,shatters:0,links:0,pulls:0,transfers:0,digestions:0,breaks:0},prev:0,warning:false};
 const World={platforms:[],door:null,switch:null};
 const labels={stasis:'СТОП',release:'ПУСТИТИ',gel:'ГЕЛЬ',crystal:'КРИСТАЛ',shatter:'РОЗБИТИ',link:'НИТКА',pull:'СТЯГНУТИ',transfer:'ІМПУЛЬС',digest:'ПОГЛИНУТИ',recall:'ПОВЕРНУТИ',help:'ДОВІДКА',reset:'ЗАНОВО'};
 const codes={stasis:'Ⅱ',release:'▶',gel:'≈',crystal:'◆',shatter:'✦',link:'⌁',pull:'⇡',transfer:'⇆',digest:'◉',recall:'↶',help:'?',reset:'↻'};
@@ -37,7 +37,7 @@ function reward(amount){S.biomass=clamp(S.biomass+amount,0,100);}
 function spawnParticles(x,y,c,n=12,power=1){for(let i=0;i<n;i++){let a=rand(i*25+S.time*18)*6.28,sp=(40+rand(i*7+S.time*3)*180)*power;S.particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:.5+rand(i*17)*.7,ttl:1.3,r:2+rand(i*9)*4,color:c})}}
 function addBody(...args){let b=createBody(...args);S.bodies.push(b);return b;}
 function resetRoom(number){
- S.room=number;S.phase='playing';S.time=0;S.biomass=number===1?100:clamp(S.biomass+30,65,100);S.selected=null;S.drag=null;S.drags=new Map();S.linkStart=null;S.mode=null;S.links=[];S.gels=[];S.shards=[];S.particles=[];S.bodies=[];S.anchors=[];S.goal=false;S.won=false;S.enemy=null;
+ S.room=number;S.phase='playing';S.time=0;S.biomass=number===1?100:clamp(S.biomass+30,65,100);S.selected=null;S.drag=null;S.drags=new Map();S.keys={};S.keyboard={};S.menuOpen=false;S.linkStart=null;S.mode=null;S.links=[];S.gels=[];S.shards=[];S.particles=[];S.bodies=[];S.anchors=[];S.goal=false;S.won=false;S.enemy=null;
  if(number===1){
  World.platforms=[rect(0,799,246,125),rect(504,680,216,244)];
  World.door=rect(654,593,52,87);World.switch={x:597,y:634,r:26,lit:false};
@@ -110,7 +110,10 @@ function digest(){let b=getBody();if(!b||b.deleted){message('Вибери неп
  b.deleted=true;S.links.forEach(l=>{if(l.a===b.id||l.b===b.id)l.alive=false});S.selected=null;reward(gain);S.stats.digestions++;spawnParticles(b.x,b.y,'#a8faa6',20);message('Поглинуто: +'+gain+'% біомаси. Предмет втрачено.');}
 function recall(){if(S.selected?.type==='link'){let l=S.selected;l.alive=false;reward(5);S.selected=null;message('Нитку поглинуто назад: +5% біомаси.');return}let b=getBody();if(b?.fixed){b.fixed=false;b.stored=null;b.vx=0;b.vy=0;reward(6);message('Кокон прибрано: +6% біомаси.');return;}if(S.gels.length){S.gels.pop();reward(4);message('Гель повернено: +4%.');return;}message('Вибери нитку або зафіксований предмет.');}
 function useAction(key){if(S.phase==='intro'){start();return}if(S.phase==='won'){start();return}
+ if(key==='tools'){S.menuOpen=!S.menuOpen;S.mode=null;S.linkStart=null;return;}
+ if(key==='quick'){let selected=getBody();if(!selected){message('Торкнися стільця або іншого предмета, а потім натисни СТОП.',2.5);return;}S.menuOpen=false;if(selected.fixed)release();else stasis();return;}
  if(S.phase==='help'){S.phase='playing';return}
+ S.menuOpen=false;
  if(key==='stasis')stasis();if(key==='release')release();if(key==='gel'){S.mode='gel';S.linkStart=null;message('Торкнися місця у світі, де з’явиться в’язка хмара.');}
  if(key==='crystal')crystallize();if(key==='shatter')shatter();if(key==='link'){S.mode='link';S.linkStart=getBody()||S.selected?.id?.startsWith('A')?S.selected:null;message(S.linkStart?'Вибери другий об’єкт або сяйливий якір.':'Торкнися двох предметів або предмета й якоря.');}
  if(key==='pull')pull();if(key==='transfer')transfer();if(key==='digest')digest();if(key==='recall')recall();if(key==='help'){S.phase='help'}if(key==='reset'){let room=S.room;resetRoom(room);message('Кімнату перезапущено.');}
@@ -118,26 +121,29 @@ function useAction(key){if(S.phase==='intro'){start();return}if(S.phase==='won')
 function addVelocity(body,vx,vy){body.fixed=false;body.stored=null;body.vx=vx;body.vy=vy;body.omega=(vx>0?1:-1)*(1.5+Math.abs(vx)/250);body.held=false;}
 function worldHit(x,y){let b=nearBody(x,y);return b||nearAnchor(x,y)||nearLink(x,y)}
 function pointerDown(x,y,pointerId=0){x=clamp(x,0,W);y=clamp(y,0,H);
- if(S.phase==='intro'){start();return;}if(S.phase==='help'){S.phase='playing';return;}if(S.phase==='won'){start();return;}
+ if(S.phase==='intro'){start();return;}if(S.phase==='help'){S.phase='playing';cancelControls();return;}if(S.phase==='won'){start();return;}
+ if(S.menuOpen&&y<932){const b=S.menuButtons.find(b=>x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h);if(b)useAction(b.key);else S.menuOpen=false;return;}
  if(y>=932){for(let b of S.buttons){if(x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h){if(['left','right','jump'].includes(b.key)){
  S.keys[b.key]=true;S.drags.set(pointerId,{kind:'control',key:b.key});if(b.key==='jump')jump();
  }else useAction(b.key);return;}}return;}
  if(S.mode==='gel'||S.mode==='link'){doSelectAt(x,y);return;}
+ if(S.menuOpen){S.menuOpen=false;return;}
  let obj=worldHit(x,y);if(obj){select(obj);if(typeof obj.id==='number'){const d={kind:'object',startX:x,startY:y,x,y,body:obj,started:false};S.drag=d;S.drags.set(pointerId,d);}}
  else {S.selected=null;const d={kind:'world',startX:x,startY:y,x,y};S.drag=d;S.drags.set(pointerId,d);}
 }
 function pointerMove(x,y,pointerId=0){const d=S.drags.get(pointerId);if(!d)return;d.x=clamp(x,0,W);d.y=clamp(y,0,925);if(d.kind==='object'&&Math.hypot(x-d.startX,y-d.startY)>17)d.started=true;}
+function cancelControls(){S.keys.left=false;S.keys.right=false;S.keys.jump=false;S.keyboard.left=false;S.keyboard.right=false;S.keyboard.jump=false;S.drags.clear();S.drag=null;if(S.player)S.player.vx=0;}
 function pointerUp(x,y,pointerId=0){const d=S.drags.get(pointerId);if(!d)return;S.drags.delete(pointerId);if(S.drag===d)S.drag=null;
- if(d.kind==='control'){if(![...S.drags.values()].some(x=>x.kind==='control'&&x.key===d.key))S.keys[d.key]=false;return}
+ if(d.kind==='control'){S.keys[d.key]=[...S.drags.values()].some(x=>x.kind==='control'&&x.key===d.key);if((d.key==='left'||d.key==='right')&&!S.keys.left&&!S.keys.right&&S.player)S.player.vx=0;return}
  if(d.kind==='object'&&d.started){let dx=clamp(x-d.startX,-300,300),dy=clamp(y-d.startY,-320,320),b=d.body;if(b.deleted)return;
  if(b.fixed){b.fixed=false;b.stored=null;}
  addVelocity(b,clamp(dx*3.25,-820,820),clamp(dy*3.25,-820,820));b.x=clamp(b.x,30,W-30);b.y-=10;S.stats.flings++;message('Кидок! Натисни СТОП, поки предмет летить.',2.2);}
 }
 function jump(){let p=S.player;if(p.onFloor&&S.phase==='playing'){p.vy=-600;p.onFloor=false;p.standOn=null;spawnParticles(p.x,p.y+18,'#9be9e1',7,.2)}}
 function keyDown(key){if(key==='Enter'||key==='enter'){if(S.phase==='intro'||S.phase==='won'){start();return}if(S.phase==='help'){S.phase='playing';return;}}
- let k=String(key).toLowerCase();if(k==='a'||k==='arrowleft'){S.keys.left=true;return}if(k==='d'||k==='arrowright'){S.keys.right=true;return}if(k===' '||k==='w'||k==='arrowup'){if(!S.keys.jump)jump();S.keys.jump=true;return}if(k==='h'){useAction('help');return}if(k==='r'){useAction('reset');return}
+ let k=String(key).toLowerCase();if(k==='a'||k==='arrowleft'){S.keyboard.left=true;return}if(k==='d'||k==='arrowright'){S.keyboard.right=true;return}if(k===' '||k==='w'||k==='arrowup'){if(!S.keys.jump&&!S.keyboard.jump)jump();S.keyboard.jump=true;return}if(k==='h'){useAction('help');return}if(k==='r'){useAction('reset');return}
  let map={'1':'stasis','2':'release','3':'gel','4':'crystal','5':'shatter','6':'link','7':'pull','8':'transfer','9':'digest','0':'recall'};if(map[k])useAction(map[k]);}
-function keyUp(key){let k=String(key).toLowerCase();if(k==='a'||k==='arrowleft')S.keys.left=false;if(k==='d'||k==='arrowright')S.keys.right=false;if(k===' '||k==='w'||k==='arrowup')S.keys.jump=false;}
+function keyUp(key){let k=String(key).toLowerCase();if(k==='a'||k==='arrowleft')S.keyboard.left=false;if(k==='d'||k==='arrowright')S.keyboard.right=false;if(k===' '||k==='w'||k==='arrowup')S.keyboard.jump=false;}
 function solidSurfaces(){let surfaces=[...World.platforms.map(p=>({x1:p.x,x2:p.x+p.w,y:p.y}))];for(let b of S.bodies){if(b.deleted)continue;let half=b.w*.52;{surfaces.push({x1:b.x-half,x2:b.x+half,y:b.y-b.h*.48,body:b})}}return surfaces;}
 function applyWorldCollision(b,oldY){let r=b.h*.5;for(const p of World.platforms){if(b.x+b.w*.38>p.x&&b.x-b.w*.38<p.x+p.w&&oldY+r<=p.y+19&&b.y+r>=p.y&&b.vy>=0){b.y=p.y-r;b.vy*=-.22;b.vx*=.83;b.omega*=.75;if(Math.abs(b.vy)<44){b.vy=0;b.omega*=.5;}return true}}
  return false;}
@@ -175,11 +181,24 @@ function updateLinks(dt){let ids=connectedIds();for(let l of S.links){if(!l.aliv
  }
  S.links=S.links.filter(l=>l.alive);
 }
-function updatePlayer(dt){let p=S.player;const mov=(S.keys.right?1:0)-(S.keys.left?1:0),speed=270;
+function updatePlayer(dt){let p=S.player;
+ const left=!!(S.keys.left||S.keyboard.left),right=!!(S.keys.right||S.keyboard.right);
+ const mov=Number(right)-Number(left),speed=230;
  let gelSlow=S.gels.some(g=>distance(p,g)<g.r)?0.6:1;
  if(p.standOn){const support=S.bodies.find(b=>b.id===p.standOn&&!b.deleted);if(support&&p.vy>=0){p.x+=support.x-(support.prevX??support.x);p.y+=support.y-(support.prevY??support.y)}else p.standOn=null;}
  let oldY=p.y;
- p.vx=mov*speed*gelSlow;p.vy+=1020*dt;p.x=clamp(p.x+p.vx*dt,p.r,W-p.r);p.y+=p.vy*dt;p.onFloor=false;p.standOn=null;
+ p.vx=mov*speed*gelSlow;
+ let newX=clamp(p.x+p.vx*dt,p.r,W-p.r);
+ // Forgiving platformer: walking stops at a precipice unless the player jumps.
+ if(mov!==0&&p.onFloor&&p.vy>=0){
+  const foot=p.y+p.r;
+  const supports=solidSurfaces().filter(s=>Math.abs(s.y-foot)<14&&p.x>=s.x1-p.r*.4&&p.x<=s.x2+p.r*.4);
+  if(supports.length && !supports.some(s=>newX>=s.x1+p.r*.52 && newX<=s.x2-p.r*.52)){
+   const edges=supports.map(s=>mov>0?s.x2-p.r*.52:s.x1+p.r*.52);
+   newX=mov>0?Math.max(...edges):Math.min(...edges);p.vx=0;
+  }
+ }
+ p.vy+=1020*dt;p.x=newX;p.y+=p.vy*dt;p.onFloor=false;p.standOn=null;
  for(let s of solidSurfaces()){
  if(p.x+p.r*.58<s.x1||p.x-p.r*.58>s.x2)continue;
  if(oldY+p.r<=s.y+13&&p.y+p.r>=s.y&&p.vy>=0){p.y=s.y-p.r;p.vy=0;p.onFloor=true;if(s.body)p.standOn=s.body.id;}
@@ -198,7 +217,7 @@ function updateShards(dt){for(let s of S.shards){s.vy+=650*dt;s.x+=s.vx*dt;s.y+=
  for(let p of World.platforms)if(s.x>p.x&&s.x<p.x+p.w&&s.y>p.y-5&&s.y<p.y+30){s.life=0;break;}
  }S.shards=S.shards.filter(s=>s.life>0&&s.x>-30&&s.x<W+30&&s.y<H);
 }
-function update(dt){if(S.phase!=='playing')return;dt=clamp(dt,0,.033);S.time+=dt;if(S.msgT>0)S.msgT=Math.max(0,S.msgT-dt);for(let i=0;i<3;i++){let d=dt/3;updateBodies(d);updateLinks(d);updatePlayer(d)}updateShards(dt);
+function update(dt){if(S.phase!=='playing'||S.menuOpen)return;dt=clamp(dt,0,.033);S.time+=dt;if(S.msgT>0)S.msgT=Math.max(0,S.msgT-dt);for(let i=0;i<3;i++){let d=dt/3;updateBodies(d);updateLinks(d);updatePlayer(d)}updateShards(dt);
  for(let g of S.gels)g.time-=dt;S.gels=S.gels.filter(g=>g.time>0);
  for(let p of S.particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=75*dt;p.life-=dt}S.particles=S.particles.filter(p=>p.life>0);
  if(S.enemy?.alive){S.enemy.x=603+Math.sin(S.time*1.7)*30;S.enemy.y=651+Math.sin(S.time*3)*3;if(S.enemy.hitCool>0)S.enemy.hitCool-=dt;}
@@ -258,28 +277,58 @@ function renderHUD(){fillRounded(12,13,696,97,18,'rgba(14,22,36,.88)','rgba(117,
  if(S.msgT>0){fillRounded(26,858,668,54,16,'rgba(16,28,45,.94)','rgba(132,202,203,.3)');text(S.message,360,891,17,'#f3ebff','center','600')}
  else {let selection=S.selected?.type==='link'?'НИТКА • натяг '+Math.round(S.selected.tension||0)+'%':S.selected?.name||'Немає вибраного предмета';fillRounded(30,867,660,43,13,'rgba(12,22,33,.8)');text('ВИБРАНО: '+selection,360,894,15,'#b8d2de','center');}
 }
-const actions=['stasis','release','gel','crystal','shatter','link','pull','transfer','digest','recall','help','reset'];
-function setupButtons(){S.buttons=[];for(let i=0;i<actions.length;i++){let col=i%4,row=Math.floor(i/4),x=13+col*177,y=946+row*63;S.buttons.push({x,y,w:164,h:55,key:actions[i]});}S.buttons.push({x:15,y:1150,w:166,h:104,key:'left'});S.buttons.push({x:190,y:1150,w:166,h:104,key:'right'});S.buttons.push({x:368,y:1150,w:333,h:104,key:'jump'});}
-function renderControls(){fillRounded(0,930,720,350,0,'rgba(11,19,31,.96)');line(0,933,720,933,'rgba(164,207,222,.2)',2);
- for(let b of S.buttons){let key=b.key,movement=['left','right','jump'].includes(key),active=(movement&&S.keys[key])||(key==='gel'&&S.mode==='gel')||(key==='link'&&S.mode==='link');
- fillRounded(b.x,b.y,b.w,b.h,movement?17:12,active?'#3b5773':movement?'#243d54':'#242d42',active?'#a4e2ef':'rgba(117,153,174,.3)');
- if(movement){text(key==='left'?'◀':key==='right'?'▶':'СТРИБОК',b.x+b.w/2,b.y+64,key==='jump'?30:38,'#dcefff','center','800')}
- else {let cc=actionCols[key];text(codes[key],b.x+26,b.y+36,27,cc,'center','700');text(labels[key],b.x+99,b.y+33,key==='digest'?15:18,'#e2e6ef','center','700');}
+const advancedActions=['gel','crystal','shatter','link','pull','transfer','digest','recall','help','reset'];
+function setupButtons(){
+ S.buttons=[
+  {x:16,y:952,w:343,h:108,key:'quick'},
+  {x:371,y:952,w:333,h:108,key:'tools'},
+  {x:16,y:1080,w:165,h:170,key:'left'},
+  {x:192,y:1080,w:165,h:170,key:'right'},
+  {x:375,y:1080,w:329,h:170,key:'jump'}
+ ];
+ S.menuButtons=advancedActions.map((key,i)=>({x:27+(i%2)*340,y:539+Math.floor(i/2)*67,w:327,h:59,key}));
+}
+function renderControls(){
+ fillRounded(0,930,720,350,0,'rgba(11,19,31,.97)');line(0,933,720,933,'rgba(164,207,222,.25)',2);
+ for(const b of S.buttons){
+  const key=b.key,movement=key==='left'||key==='right'||key==='jump';
+  const active=(movement&&(S.keys[key]||S.keyboard[key]))||(key==='tools'&&S.menuOpen);
+  const col=key==='quick'?'#654a93':key==='tools'?'#3a5369':movement?'#243f59':'#283347';
+  fillRounded(b.x,b.y,b.w,b.h,19,active?'#547997':col,active?'#b9f0fd':'rgba(145,181,201,.4)');
+  if(key==='quick'){
+    const bdy=getBody(),label=bdy?.fixed?'ВІДПУСТИТИ':'СТОП / ПУСТИТИ';
+    text('Ⅱ',b.x+46,b.y+67,41,'#e7c7ff','center','800');text(label,b.x+208,b.y+65,label.length>13?25:29,'#fff1ff','center','800');
+  }else if(key==='tools'){
+    text('☷',b.x+42,b.y+67,37,'#aaf4d7','center','800');text(S.menuOpen?'ЗАКРИТИ':'ЗДІБНОСТІ',b.x+203,b.y+65,27,'#e4f3f8','center','800');
+  }else if(key==='jump')text('СТРИБОК',b.x+b.w/2,b.y+102,31,'#e8f6ff','center','800');
+  else text(key==='left'?'◀':'▶',b.x+b.w/2,b.y+109,57,'#e8f6ff','center','800');
+ }
+}
+function renderToolsMenu(){if(!S.menuOpen||S.phase!=='playing')return;
+ ctx.fillStyle='rgba(5,10,20,.72)';ctx.fillRect(0,0,720,930);
+ fillRounded(12,452,696,462,22,'#162439','#7295b7');
+ text('ДОДАТКОВІ ЗДІБНОСТІ',360,495,26,'#e3eaff','center','800');
+ text('Вибери дію — меню закриється',360,524,16,'#a9c1d1','center');
+ for(const b of S.menuButtons){
+  let active=(b.key==='link'&&S.mode==='link')||(b.key==='gel'&&S.mode==='gel');
+  fillRounded(b.x,b.y,b.w,b.h,14,active?'#406078':'#283850',active?'#a9eacb':'#506e84');
+  text(codes[b.key],b.x+37,b.y+39,26,actionCols[b.key],'center','800');
+  text(labels[b.key],b.x+186,b.y+37,b.key==='digest'?18:21,'#f3f5fc','center','700');
  }
 }
 function renderDrag(){if(!S.drag||S.drag.kind!=='object'||!S.drag.started)return;let d=S.drag,b=d.body;if(b.deleted)return;line(b.x,b.y,b.x+(d.x-d.startX)*.85,b.y+(d.y-d.startY)*.85,'#efddad',5,[9,8]);circle(d.x,d.y,16,'rgba(239,221,173,.2)','#efddad');text('ВІДПУСТИ = КИДОК',360,841,17,'#ffe7a7','center','700');}
 function overlay(title,description,lines,button){ctx.fillStyle='rgba(4,9,18,.77)';ctx.fillRect(0,0,W,H);fillRounded(43,304,634,626,28,'#172439','#8a70ae');text(title,360,394,42,'#dcd0ff','center','800');text(description,360,432,19,'#a9e2d7','center','600');for(let i=0;i<lines.length;i++)text(lines[i],360,493+i*48,17,'#d5e7ef','center');fillRounded(140,796,440,84,22,'#4e4279','#bd91ff');text(button,360,852,26,'#f9eeff','center','800')}
-function render(){ctx.save();ctx.clearRect(0,0,W,H);renderBG();renderPlatforms();renderGel();renderLinks();renderDoor();for(let b of S.bodies)renderBody(b);renderShards();renderEnemy();renderPlayer();renderParticles();renderDrag();renderHUD();renderControls();
+function render(){ctx.save();ctx.clearRect(0,0,W,H);renderBG();renderPlatforms();renderGel();renderLinks();renderDoor();for(let b of S.bodies)renderBody(b);renderShards();renderEnemy();renderPlayer();renderParticles();renderDrag();renderHUD();renderToolsMenu();renderControls();
  if(S.phase==='intro')overlay('CYTOPLASM','ЖИВА АРХІТЕКТУРА — 2 КІМНАТИ',[
  'Перетягни предмет пальцем та відпусти — він полетить.',
- 'СТОП зафіксує предмет у польоті — це твоя платформа.',
- 'КРИСТАЛ і РОЗБИТИ створюють небезпечні осколки.',
- 'НИТКА + СТЯГНУТИ підіймають і з’єднують предмети.',
- 'Кожна дія витрачає частину твого тіла — біомасу.',
- 'A/D або ◀/▶ — рух; Space або СТРИБОК — стрибок.'
+ 'Кинь предмет і натисни СТОП, щоб зробити платформу.',
+ 'ВІДПУСТИТИ повертає предмету його рух.',
+ 'Інші дії заховані в меню ЗДІБНОСТІ.',
+ 'Рух тільки доки тримаєш стрілку; біля прірви — стоп.',
+ 'Кожна цитоплазмова дія витрачає біомасу.'
  ],'ПОЧАТИ ДОСЛІД');
  if(S.phase==='help')overlay('ДОВІДКА','ТОРКНИСЯ ЕКРАНА, ЩОБ ПОВЕРНУТИСЯ',[
- 'Тапни по предмету — вибір. Перетягни — кидок.',
+ 'Тап по предмету — вибір. Перетягни — кидок.',
  'СТОП / ПУСТИТИ — зберегти чи відновити швидкість.',
  'ГЕЛЬ — тапни на полі, щоб створити в’язку зону.',
  'КРИСТАЛ — створити або зміцнити. РОЗБИТИ — осколки.',
@@ -297,12 +346,11 @@ function render(){ctx.save();ctx.clearRect(0,0,W,H);renderBG();renderPlatforms()
  ],'ГРАТИ ЗНОВУ');
  ctx.restore();}
 function step(dt){update(dt);render()}
-function getState(){return {phase:S.phase,room:S.room,biomass:S.biomass,player:{...S.player},bodies:S.bodies.filter(x=>!x.deleted).map(x=>({...x})),links:S.links.map(x=>({...x})),gels:S.gels.length,shards:S.shards.length,goal:S.goal,enemy:S.enemy?{...S.enemy}:null,selectedId:S.selected?.id||null,mode:S.mode,stats:{...S.stats},message:S.message};}
+function getState(){return {phase:S.phase,room:S.room,biomass:S.biomass,menuOpen:S.menuOpen,player:{...S.player},bodies:S.bodies.filter(x=>!x.deleted).map(x=>({...x})),links:S.links.map(x=>({...x})),gels:S.gels.length,shards:S.shards.length,goal:S.goal,enemy:S.enemy?{...S.enemy}:null,selectedId:S.selected?.id||null,mode:S.mode,stats:{...S.stats},message:S.message};}
 setupButtons();resetRoom(1);S.phase='intro';render();
-return {start,resetRoom,step,update,draw:render,pointerDown,pointerMove,pointerUp,keyDown,keyUp,getState,actions:useAction,selectById(id){let b=S.bodies.find(x=>x.id===id);if(b)select(b);return !!b},setBiomass(v){S.biomass=clamp(v,0,100)},_unsafeState:S};
+return {start,resetRoom,step,update,draw:render,pointerDown,pointerMove,pointerUp,cancelControls,keyDown,keyUp,getState,actions:useAction,selectById(id){let b=S.bodies.find(x=>x.id===id);if(b)select(b);return !!b},setBiomass(v){S.biomass=clamp(v,0,100)},_unsafeState:S};
 }
 if(typeof module!=='undefined'&&module.exports)module.exports={createCytoplasm};
-
 (function(){
  const canvas=document.querySelector('#game');const game=createCytoplasm(canvas);let last=performance.now();const activePointers=new Set();
  function pos(e){const r=canvas.getBoundingClientRect();return {x:(e.clientX-r.left)*720/r.width,y:(e.clientY-r.top)*1280/r.height};}
@@ -310,6 +358,11 @@ if(typeof module!=='undefined'&&module.exports)module.exports={createCytoplasm};
  canvas.addEventListener('pointermove',e=>{if(!activePointers.has(e.pointerId))return;e.preventDefault();const p=pos(e);game.pointerMove(p.x,p.y,e.pointerId)});
  canvas.addEventListener('pointerup',e=>{if(!activePointers.has(e.pointerId))return;e.preventDefault();const p=pos(e);game.pointerUp(p.x,p.y,e.pointerId);activePointers.delete(e.pointerId)});
  canvas.addEventListener('pointercancel',e=>{if(!activePointers.has(e.pointerId))return;const p=pos(e);game.pointerUp(p.x,p.y,e.pointerId);activePointers.delete(e.pointerId)});
+ canvas.addEventListener('lostpointercapture',e=>{if(!activePointers.has(e.pointerId))return;const p=pos(e);game.pointerUp(p.x,p.y,e.pointerId);activePointers.delete(e.pointerId)});
+ window.addEventListener('pointerup',e=>{if(!activePointers.has(e.pointerId))return;const p=pos(e);game.pointerUp(p.x,p.y,e.pointerId);activePointers.delete(e.pointerId)});
+ window.addEventListener('blur',()=>{activePointers.clear();game.cancelControls()});
+ window.addEventListener('pagehide',()=>{activePointers.clear();game.cancelControls()});
+ document.addEventListener('visibilitychange',()=>{if(document.hidden){activePointers.clear();game.cancelControls()}});
  window.addEventListener('keydown',e=>{if([' ','ArrowLeft','ArrowRight','ArrowUp'].includes(e.key))e.preventDefault();if(e.repeat)return;game.keyDown(e.key)});
  window.addEventListener('keyup',e=>game.keyUp(e.key));
  function frame(now){const dt=Math.min(.033,(now-last)/1000||.016);last=now;game.step(dt);requestAnimationFrame(frame)}
